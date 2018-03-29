@@ -100,7 +100,7 @@ export class StripeTestComponent implements OnInit {
     this.stripeTest = this.fb.group({
       name: ['', [Validators.required]]
     });
-    this.stripeService.elements(elementsOptions)
+    this.stripeService.elements(this.elementsOptions)
       .subscribe(elements => {
         this.elements = elements;
         // Only mount the element the first time
@@ -149,7 +149,7 @@ As an alternative to the previous example, you could use the StripeCardComponent
 
 It will make a little bit easier to mount the card.
 
-To fetch the Stripe Element, you could you use either the (onCard) output, or, 
+To fetch the Stripe Element, you could you use either the (card) output, or, 
 by using a ViewChild, the public method getCard()
 
 //stripe.html
@@ -221,6 +221,118 @@ export class StripeTestComponent implements OnInit {
           console.log(result.error.message);
         }
       });
+  }
+}
+```
+
+## StripeFactoryService
+
+If you get your stripe key in a lazy way, or if you need to work with more than one key, you can use this service.
+
+If you don't know the key just call the forRoot method with no params:
+
+```typescript
+import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppComponent } from './app.component';
+
+// Import your library
+import { NgxStripeModule } from 'ngx-stripe';
+
+@NgModule({
+  declarations: [
+    AppComponent
+  ],
+  imports: [
+    BrowserModule,
+    NgxStripeModule.forRoot(),
+    LibraryModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+```
+
+Then you can use the factory service to create stripe instances. The stripe instance has the
+same methods of old StripeService.
+
+```typescript
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { FormGroup, FormBuilder, Validators } from "@angular/forms";
+
+import { StripeInstance, StripeFactoryService } from "ngx-stripe";
+
+@Component({
+  selector: 'app-stripe-test',
+  templateUrl: 'stripe.html'
+})
+export class StripeTestComponent implements OnInit {
+  stripe: StripeInstance;
+
+  constructor(
+    private fb: FormBuilder,
+    private stripeFactory: StripeFactoryService
+  ) {}
+
+  ngOnInit() {
+    this.stripe = this.stripeFactory.create('***your-stripe-publishable key***');
+  }
+}
+```
+
+If you prefer to work the old StripeService, you can also update the key:
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+
+import { StripeService } from 'ngx-stripe';
+
+@Component({
+  selector: 'app-stripe-test',
+  templateUrl: 'stripe.html'
+})
+export class StripeTestComponent implements OnInit {
+
+  constructor(
+    private fb: FormBuilder,
+    private stripeSerivce: StripeService
+  ) {}
+
+  ngOnInit() {
+    this.stripeService.setKey('***your-stripe-publishable key***');
+  }
+}
+```
+
+## Stripe Instance and Stripe Reference
+
+For situations where the module has any mistakes or missing methods (I'm aware it has)
+you can now access both your elements instance and a reference to Stripe:
+
+```typescript
+import { Component, OnInit } from '@angular/core';
+
+import { StripeService } from 'ngx-stripe';
+
+@Component({
+  selector: 'app-stripe-test',
+  templateUrl: 'stripe.html'
+})
+export class StripeTestComponent implements OnInit {
+
+  constructor(
+    private fb: FormBuilder,
+    private stripeSerivce: StripeService
+  ) {}
+
+  ngOnInit() {
+    // this is equivalent to window.Stipe, but it make sure the module is loaded
+    const Stripe$: Observable<any> = this.stripeService.getStripeReference();
+
+    // this is a reference to the stripe elements object
+    const stripe = this.stripeService.getInstance();
   }
 }
 ```

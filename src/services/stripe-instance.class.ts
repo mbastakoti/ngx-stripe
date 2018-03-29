@@ -1,5 +1,3 @@
-import { Injectable, Inject } from '@angular/core';
-
 import { Observable } from 'rxjs/Observable';
 
 import { WindowRef } from './window-ref';
@@ -31,69 +29,70 @@ import {
   isPii,
   isPiiData
 } from '../interfaces/token';
-import { StripeInstance } from './stripe-instance.class';
 import { StripeServiceInterface } from './stripe-instance.interface';
 import { PaymentRequestOptions } from '../interfaces/payment-request';
 
-@Injectable()
-export class StripeService implements StripeServiceInterface {
-  private stripe: StripeInstance;
+export class StripeInstance implements StripeServiceInterface {
+  private stripe: StripeJS;
 
   constructor(
-    @Inject(STRIPE_PUBLISHABLE_KEY) private key: string,
-    @Inject(STRIPE_OPTIONS) private options: Options,
     private loader: LazyStripeAPILoader,
-    private window: WindowRef
+    private window: WindowRef,
+    private key: string,
+    private options?: Options
   ) {
-    if (key) {
-      this.stripe = new StripeInstance(this.loader, this.window, key, options);
-    }
-  }
-
-  public getStripeReference(): Observable<any> {
-    return this.loader
-      .asStream()
-      .filter((status: Status) => status.loaded === true)
-      .map(() => (this.window.getNativeWindow() as any).Stripe);
+    this.stripeObject().subscribe((Stripe: any) => {
+      this.stripe = this.options
+        ? (Stripe(this.key, this.options) as StripeJS)
+        : (Stripe(this.key) as StripeJS);
+    });
   }
 
   public getInstance() {
-    return this.stripe.getInstance();
-  }
-
-  public setKey(key: string, options?: Options) {
-    return this.changeKey(key, options);
-  }
-
-  public changeKey(key: string, options?: Options) {
-    this.stripe = new StripeInstance(this.loader, this.window, key, options);
-
     return this.stripe;
   }
 
   public elements(options?: ElementsOptions): Observable<Elements> {
-    return this.stripe.elements(options);
+    return this.stripeObject().map(() => this.stripe.elements(options));
   }
 
   public createToken(
     a: Element | BankAccount | Pii,
     b: CardDataOptions | BankAccountData | PiiData | undefined
   ): Observable<TokenResult> {
-    return this.stripe.createToken(a, b);
+    if (isBankAccount(a) && isBankAccountData(b)) {
+      return Observable.fromPromise(this.stripe.createToken(a, b));
+    } else if (isPii(a) && isPiiData(b)) {
+      return Observable.fromPromise(this.stripe.createToken(a, b));
+    } else {
+      return Observable.fromPromise(
+        this.stripe.createToken(a as Element, b as CardDataOptions | undefined)
+      );
+    }
   }
 
   public createSource(
     a: Element | SourceData,
     b?: SourceData | undefined
   ): Observable<SourceResult> {
-    return this.stripe.createSource(a, b);
+    if (isSourceData(a)) {
+      return Observable.fromPromise(this.stripe.createSource(a as SourceData));
+    }
+    return Observable.fromPromise(this.stripe.createSource(a as Element, b));
   }
 
   public retrieveSource(source: SourceParams): Observable<SourceResult> {
-    return this.stripe.retrieveSource(source);
+    return Observable.fromPromise(this.stripe.retrieveSource(source));
   }
 
   public paymentRequest(options: PaymentRequestOptions) {
     return this.stripe.paymentRequest(options);
+  }
+
+  private stripeObject(): Observable<any> {
+    return this.loader
+      .asStream()
+      .filter((status: Status) => status.loaded === true)
+      .map(() => (this.window.getNativeWindow() as any).Stripe);
   }
 }
